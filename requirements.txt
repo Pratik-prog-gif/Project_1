@@ -1,0 +1,13 @@
+# The warehouse pipeline itself is pure SQL and needs NO Python.
+# Run it with: .\run_pipeline.ps1   (see README)
+#
+# These packages are optional, and only needed if you want to explore the gold
+# layer from a notebook or build charts on top of it.
+#
+#   pip install -r requirements.txt
+
+pandas>=2.0
+SQLAlchemy>=2.0
+PyMySQL>=1.1          # DB-API driver SQLAlchemy needs for mysql+pymysql://
+matplotlib>=3.8
+jupyter>=1.0

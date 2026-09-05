@@ -1,0 +1,11 @@
+# The bronze loader uses LINES TERMINATED BY '\r\n', so the source CSVs must
+# keep their CRLF endings byte-for-byte on every platform. Without this,
+# core.autocrlf would normalise them to LF on commit and a Linux clone would
+# get LF files that the loader cannot parse.
+dataset/**/*.csv -text
+
+# Everything else is normal text: LF in the repository, native in the checkout.
+*.sql   text
+*.md    text
+*.txt   text
+*.ps1   text eol=crlf

@@ -1,0 +1,28 @@
+# Credentials - never commit these
+.my.cnf
+*.cnf
+.env
+secrets.*
+
+# MySQL / tooling output
+*.log
+*.err
+dumps/
+*.sql.bak
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Python (optional exploration only)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
