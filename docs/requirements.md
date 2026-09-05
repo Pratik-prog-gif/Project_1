@@ -35,6 +35,32 @@ These were identified by profiling the raw CSVs before any code was written.
 | `CUST_AZ12.csv` | Birthdates in the future | Set to `NULL` |
 | `LOC_A101.csv` | `cid` contains hyphens absent from CRM | Hyphens removed |
 | `LOC_A101.csv` | Country codes inconsistent (`DE`, `US`, `USA`, blank) | Normalised to full names; blanks become `n/a` |
+| `prd_info.csv` vs `PX_CAT_G1V2.csv` | The systems disagree on one category code: CRM codes pedals `CO_PE`, ERP has only `CO_PD` (Components / Pedals). 7 products resolved to no category. | `CO_PE` remapped to `CO_PD` in silver — see assumption below |
+
+### Assumptions
+
+**`CO_PE` → `CO_PD`.** This mapping is inferred, not supplied by either source
+system. The evidence: all seven affected products are named `... Pedal`
+(`LL Mountain Pedal`, `Touring Pedal`, and so on), ERP's `CO_PD` is exactly
+`Components / Pedals`, and no other ERP code is a plausible match. Left
+unmapped, those products join to a `NULL` category and silently disappear from
+every category-level report.
+
+If this turns out to be wrong, the single `CASE` in `silver.load_silver()`
+that performs it can be removed without touching anything else; quality check
+14 in `tests/quality_checks_silver.sql` will then flag the 7 rows again.
+
+### Known data characteristics (not defects)
+
+These are reported by the informational section of the silver checks and are
+deliberately left in the data:
+
+- **15 customers born before 1924** (earliest 1916-02-10). Unusual but
+  internally consistent. The ETL nulls only *impossible* birthdates — those in
+  the future — rather than destroying real records on an arbitrary age cutoff.
+- **19 sales rows with no usable order date.** The source integer was `0` or
+  malformed. The date becomes `NULL`; the row's revenue is retained, so
+  totals stay correct while time-series queries filter these out.
 
 ## 2. BI: Analytics & Reporting (Data Analysis)
 

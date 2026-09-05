@@ -20,6 +20,9 @@ Cleansing rules applied, and why each is needed:
     * prd_key is a composite. Characters 1-5 are the ERP category id (with '-'
       swapped for '_' to match erp_px_cat_g1v2.id); characters 7+ are the true
       product key that sales rows reference.
+    * The two systems disagree on one category code: CRM uses CO_PE for pedals,
+      ERP uses CO_PD. CO_PE is remapped to CO_PD so those products resolve to
+      Components / Pedals instead of dropping out of category reporting.
     * NULL prd_cost becomes 0 -- a missing cost must not null out a revenue
       calculation.
     * prd_end_dt in the source is unreliable. It is recalculated as the day
@@ -109,7 +112,15 @@ BEGIN
     )
     SELECT
         prd_id,
-        REPLACE(SUBSTRING(prd_key, 1, 5), '-', '_')  AS cat_id,
+        -- Conform the category code across the two systems. CRM codes pedals
+        -- as CO_PE; ERP has no such id and uses CO_PD ("Components / Pedals").
+        -- All seven affected products are named "... Pedal", so the codes
+        -- denote the same subcategory. Without this mapping those products
+        -- join to no category at all and fall out of category reporting.
+        CASE REPLACE(SUBSTRING(prd_key, 1, 5), '-', '_')
+             WHEN 'CO_PE' THEN 'CO_PD'
+             ELSE REPLACE(SUBSTRING(prd_key, 1, 5), '-', '_')
+        END                                          AS cat_id,
         SUBSTRING(prd_key, 7)                        AS product_key,
         prd_nm,
         IFNULL(prd_cost, 0),

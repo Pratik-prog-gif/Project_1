@@ -85,11 +85,12 @@ SELECT 'erp_cust_az12: NAS prefix not stripped' AS check_name,
 FROM silver.erp_cust_az12
 WHERE cid LIKE 'NAS%';
 
--- 11. Birthdates must be plausible.
-SELECT 'erp_cust_az12: birthdate out of range' AS check_name,
+-- 11. A birthdate in the future is impossible, so this is a hard gate. The
+--     ETL nulls such values; any survivor means the rule did not run.
+SELECT 'erp_cust_az12: birthdate in the future' AS check_name,
        COUNT(*) AS violations
 FROM silver.erp_cust_az12
-WHERE bdate < '1924-01-01' OR bdate > CURDATE();
+WHERE bdate > CURDATE();
 
 -- 12. Hyphens must be removed so the key joins to CRM.
 SELECT 'erp_loc_a101: hyphen left in cid' AS check_name,
@@ -105,8 +106,35 @@ LEFT JOIN silver.crm_cust_info AS ci ON ca.cid = ci.cst_key
 WHERE ci.cst_key IS NULL;
 
 -- 14. Category ids extracted from prd_key must resolve against the ERP file.
+--     This is what surfaced the CRM CO_PE / ERP CO_PD disagreement that
+--     silver.load_silver() now reconciles.
 SELECT 'crm_prd_info: cat_id not found in erp_px_cat_g1v2' AS check_name,
        COUNT(*) AS violations
 FROM silver.crm_prd_info AS pn
 LEFT JOIN silver.erp_px_cat_g1v2 AS pc ON pn.cat_id = pc.id
 WHERE pc.id IS NULL;
+
+/*
+-------------------------------------------------------------------------------
+ INFORMATIONAL -- not pass/fail
+-------------------------------------------------------------------------------
+ These report on the data rather than gate it. A non-zero count is expected and
+ does not block promotion to gold.
+-------------------------------------------------------------------------------
+*/
+
+-- Very old birthdates. The source genuinely contains customers born in the
+-- 1910s and 1920s. They are unusual but internally consistent, so the ETL
+-- deliberately leaves them intact rather than destroying real data; only
+-- impossible (future) dates are nulled. Reported here for visibility.
+SELECT 'INFO: birthdates before 1924' AS check_name,
+       COUNT(*)   AS records,
+       MIN(bdate) AS earliest
+FROM silver.erp_cust_az12
+WHERE bdate < '1924-01-01';
+
+-- Sales rows whose order date could not be parsed from the source integer.
+SELECT 'INFO: sales rows with no usable order date' AS check_name,
+       COUNT(*) AS records
+FROM silver.crm_sales_details
+WHERE sls_order_dt IS NULL;

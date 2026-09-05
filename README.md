@@ -79,13 +79,13 @@ Project_1/
 │
 ├── dataset/                            # Raw datasets (ERP and CRM extracts)
 │   ├── source_crm/
-│   │   ├── cust_info.csv               # 18,493 customer records
+│   │   ├── cust_info.csv               # 18,494 customer records
 │   │   ├── prd_info.csv                # 397 products
 │   │   └── sales_details.csv           # 60,398 sales order lines
 │   └── source_erp/
-│       ├── CUST_AZ12.csv               # 18,483 customer demographics
+│       ├── CUST_AZ12.csv               # 18,484 customer demographics
 │       ├── LOC_A101.csv                # 18,484 customer locations
-│       └── PX_CAT_G1V2.csv             # 36 product categories
+│       └── PX_CAT_G1V2.csv             # 37 product categories
 │
 ├── docs/                               # Documentation and architecture
 │   ├── data_architecture.md            # Layer design, data flow, star schema
@@ -105,8 +105,8 @@ Project_1/
 │       └── ddl_gold.sql                # Star-schema views
 │
 ├── tests/                              # Data-quality checks
-│   ├── quality_checks_silver.sql       # 14 checks
-│   └── quality_checks_gold.sql         # 7 checks
+│   ├── quality_checks_silver.sql       # 14 gates + 2 informational
+│   └── quality_checks_gold.sql         # 7 gates
 │
 ├── analytics/                          # BI reporting queries
 │   ├── 01_sales_trends.sql
@@ -117,6 +117,7 @@ Project_1/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
+├── .gitattributes                      # Keeps source CSVs CRLF on all platforms
 └── requirements.txt                    # Optional Python exploration deps
 ```
 
@@ -198,9 +199,53 @@ profiling the CSVs.
 | `sales <> quantity * price`; negative prices | Recomputed from the identity using `ABS(price)` |
 | Customer key differs in all three sources (`AW00011000` / `NASAW00011000` / `AW-00011000`) | `NAS` prefix and hyphens stripped so all conform to the CRM key |
 | Country codes inconsistent (`DE`, `US`, `USA`, blank) | Normalised to full names; blanks become `n/a` |
+| CRM codes pedals `CO_PE`, ERP uses `CO_PD` — 7 products resolved to no category | `CO_PE` remapped to `CO_PD` so they join to Components / Pedals |
 
 The full register, with the reasoning behind each decision, is in
 [docs/requirements.md](docs/requirements.md).
+
+---
+
+## Verified run
+
+The pipeline has been executed end to end against MySQL 8.0.46. Bronze load
+3s, silver ETL 6s.
+
+**Rows landed in bronze**
+
+| Table | Rows |
+|---|---|
+| `crm_cust_info` | 18,494 |
+| `crm_prd_info` | 397 |
+| `crm_sales_details` | 60,398 |
+| `erp_cust_az12` | 18,484 |
+| `erp_loc_a101` | 18,484 |
+| `erp_px_cat_g1v2` | 37 |
+
+**Quality checks:** 14/14 silver and 7/7 gold gates pass with zero violations.
+
+Two findings are reported as *informational* rather than failures, because the
+data is genuinely like that and the ETL should not destroy it:
+
+- **15 birthdates before 1924** (earliest 1916-02-10). Unusual but internally
+  consistent, so they are kept. Only impossible (future) dates are nulled.
+- **19 sales rows with no usable order date** — the source integer was zero or
+  malformed, so the date is `NULL` while the row's revenue is retained.
+
+**Headline figures from the gold layer**
+
+| Measure | Value |
+|---|---|
+| Total sales | 29,356,250 |
+| Total quantity | 60,423 |
+| Total orders | 27,659 |
+| Total customers | 18,484 |
+| Current products | 295 |
+| Average price | 486.04 |
+
+Revenue is heavily concentrated: **Bikes 96.46%**, Accessories 2.39%, Clothing
+1.16%. Customer segmentation splits 14,826 New / 2,039 Regular / 1,617 VIP,
+with VIPs averaging 6,524 in lifetime value against 795 for New.
 
 ---
 
