@@ -9,3 +9,12 @@ dataset/**/*.csv -text
 *.md    text
 *.txt   text
 *.ps1   text eol=crlf
+
+# Count SQL in the repository language statistics.
+#
+# GitHub Linguist classifies plain "SQL" as type: data, and data languages are
+# excluded from the language bar by default. (T-SQL and PL/pgSQL are type:
+# programming, which is why a SQL Server project shows up as TSQL while a
+# MySQL project shows nothing at all.) Without this, the 40 KB of SQL that IS
+# the project is invisible and the 3 KB PowerShell helper reads as 100% of it.
+*.sql   linguist-detectable=true
